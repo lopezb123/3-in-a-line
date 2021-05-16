@@ -1,0 +1,836 @@
+	.data
+c1:	.space 10
+c2:	.space 10
+c3:	.space 10
+prmpt:	.asciiz "Welcome to three in a line Game!\n"
+turn:	.asciiz "Your turn, enter a number between 1 and 3\n"
+invd:	.asciiz "Invalid move, enter a number between 1 and 3\n"
+win:	.asciiz "Congratulations! You win!\n"
+loss:	.asciiz "The AI wins this time.\n"
+play:	.asciiz "Play again? y/n\n"
+c1f:	.asciiz "Column 1 is full, enter another move\n"
+c2f:	.asciiz "Column 2 is full, enter another move\n"
+c3f:	.asciiz "Column 3 is full, enter another move\n"
+fullB:	.asciiz "The board is full, it's a draw.\n"
+c1full:	.asciiz "Column 1 is full, choose another column.\n"
+c2full:	.asciiz "Column 2 is full, choose another column.\n"
+c3full:	.asciiz "Column 3 is full, choose another column.\n"
+
+	.text
+main:	# initialize board
+	jal init
+	# begin game
+	la $a0, prmpt
+	li $v0, 4
+	syscall
+	
+	li $s7, 0
+	jal board
+game:	# loop for every move of game
+	# check if board full
+	addi $s7, $s7, 1
+	beq $s7, 10, full
+	# get user input, update board, and check if won
+	jal getIn
+	jal update
+	jal board
+	jal winchk
+	
+	li $a0, 10
+	li $v0, 11
+	syscall
+	syscall
+	
+	# play AI move, update board, and check if ai win
+	jal aiMove
+	jal board
+	jal winchk
+	j game
+	
+init:	# initialize board
+	li $t0, 79
+	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	li $t1, 0
+fill:	addi $t1, $t1, 1
+	sb $t0, ($s0)
+	sb $t0, ($s1)
+	sb $t0, ($s2)
+	addi $s0, $s0, 1
+	addi $s1, $s1, 1
+	addi $s2, $s2, 1
+	beq $t1, 6, init2
+	j fill
+init2:	jr $ra
+	
+board:	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	li $t1, 0
+loop:	addi $t1, $t1, 1
+	lb $a0, ($s0)
+	li $v0, 11
+	syscall
+	lb $a0, ($s1)
+	li $v0, 11
+	syscall
+	lb $a0, ($s2)
+	li $v0, 11
+	syscall
+	li $a0, 10
+	li $v0, 11
+	syscall
+	addi $s0, $s0, 1
+	addi $s1, $s1, 1
+	addi $s2, $s2, 1
+	beq $t1, 6, board2
+	j loop
+board2:	jr $ra
+	
+
+
+	
+getIn:	# prompt user for input
+	la $a0, turn
+	li $v0, 4
+	syscall
+	# take in input and move to $t0
+inv2:	li $v0, 12
+	syscall
+	move $t0, $v0
+	move $t3, $v0
+	li $a0, 10
+	li $v0, 11
+	syscall
+	# check if input is valid
+	blt $t0, 49, inv
+	bgt $t0, 51, inv
+	beq $t0, 49, c1open
+	beq $t0, 50, c2open
+	beq $t0, 51, c3open
+c1open:	la $s0, c1
+	lb $t7, ($s0)
+	bne $t7, 79, invc1
+	j valid
+c2open: la $s0, c2
+	lb $t7, ($s0)
+	bne $t7, 79, invc2
+	j valid
+c3open:	la $s0, c3
+	lb $t7, ($s0)
+	bne $t7, 79, invc3
+	# else skip invalid protocol
+valid:	jr $ra
+	
+inv:	# tell user input is invalid and loop back
+	la $a0, invd
+	li $v0, 4
+	syscall
+	j invSnd
+invc1:	# tell user c1 is invalid and loop bakc
+	la $a0, c1full
+	li $v0, 4
+	syscall
+	j invSnd
+invc2:	# tell user c2 is invalid and loop bakc
+	la $a0, c2full
+	li $v0, 4
+	syscall
+	j invSnd
+invc3:	# tell user c3 is invalid and loop bakc
+	la $a0, c3full
+	li $v0, 4
+	syscall
+	j invSnd
+invSnd:	# play invalid move sound
+	li $a0, 55
+	li $a1, 800
+	li $a2, 84
+	li $a3, 50
+	li $v0, 31
+	syscall
+	j inv2
+	
+update:	# update board
+	la $s0, c1
+	addi $s0, $s0, 5
+	la $s1, c2
+	addi $s1, $s1, 5
+	la $s2, c3
+	addi $s2, $s2, 5
+	beq $t0, 49, one
+	beq $t0, 50, two
+	beq $t0, 51, three
+	
+one:	# update to column 1
+	li $t0, 65
+	li $t1, 0
+one2:	# find next available
+	addi $t1, $t1, 1
+	beq $t1, 7, onef
+	lb $t2, ($s0)
+	beq $t2, 79, one3
+	subi $s0, $s0, 1
+	j one2
+one3:	# fill available space
+	sb $t0, ($s0)
+	jr $ra
+onef:	# let user know column is full
+	la $a0, c1f
+	li $v0, 4
+	syscall
+	jr $ra
+	
+two:	# update to column 2
+	li $t0, 65
+	li $t1, 0
+two2:	# find next available
+	addi $t1, $t1, 1
+	beq $t1, 7, twof
+	lb $t2, ($s1)
+	beq $t2, 79, two3
+	subi $s1, $s1, 1
+	j two2
+two3:	# fill available space
+	sb $t0, ($s1)
+	jr $ra
+twof:	# let user know column is full
+	la $a0, c2f
+	li $v0, 4
+	syscall
+	jr $ra
+
+three:	# update to column 1
+	li $t0, 65
+	li $t1, 0
+three2:	# find next available
+	addi $t1, $t1, 1
+	beq $t1, 7, threef
+	lb $t2, ($s2)
+	beq $t2, 79, three3
+	subi $s2, $s2, 1
+	j three2
+three3:	# fill available space
+	sb $t0, ($s2)
+	jr $ra
+threef:	# let user know column is full
+	la $a0, c3f
+	li $v0, 4
+	syscall
+	jr $ra
+	
+winchk:	# check horizontals
+	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	li $t1, 0
+hLoop:	addi $t1, $t1, 1
+	beq $t1, 7, vert
+	lb $t7, ($s0)
+	lb $t8, ($s1)
+	lb $t9, ($s2)
+	addi $s0, $s0, 1
+	addi $s1, $s1, 1
+	addi $s2, $s2, 1
+	beq $t7, 79, hLoop
+	beq $t7, $t8, h1
+	j hLoop
+h1:	beq $t8, $t9, winSeq
+	j hLoop
+vert:	# begin checking verticals
+	# column 1
+	la $s0, c1
+	li $t1, 0
+vLoop1:	addi $t1, $t1, 1
+	beq $t1, 5, col2
+	lb $t7, ($s0)
+	lb $t8, 1($s0)
+	lb $t9, 2($s0)
+	addi $s0, $s0, 1
+	beq $t7, 79, vLoop1
+	beq $t7, $t8, v11
+	j vLoop1
+v11:	beq $t8, $t9, winSeq
+	j vLoop1
+	
+col2:	# column 2
+	la $s0, c2
+	li $t1, 0
+vLoop2:	addi $t1, $t1, 1
+	beq $t1, 5, col3
+	lb $t7, ($s0)
+	lb $t8, 1($s0)
+	lb $t9, 2($s0)
+	addi $s0, $s0, 1
+	beq $t7, 79, vLoop2
+	beq $t7, $t8, v21
+	j vLoop2
+v21:	beq $t8, $t9, winSeq
+	j vLoop2
+	
+col3:	# column 3
+	la $s0, c3
+	li $t1, 0
+vLoop3:	addi $t1, $t1, 1
+	beq $t1, 5, diag
+	lb $t7, ($s0)
+	lb $t8, 1($s0)
+	lb $t9, 2($s0)
+	addi $s0, $s0, 1
+	beq $t7, 79, vLoop3
+	beq $t7, $t8, v31
+	j vLoop3
+v31:	beq $t8, $t9, winSeq
+	j vLoop3
+	
+diag:	# check diagonals
+	# 1st diagonal set
+	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	addi $s1, $s1, 1
+	addi $s2, $s2, 2
+	li $t1, 0
+dLoop1:	addi $t1, $t1, 1
+	beq $t1, 5, diag2
+	lb $t7, ($s0)
+	lb $t8, ($s1)
+	lb $t9, ($s2)
+	addi $s0, $s0, 1
+	addi $s1, $s1, 1
+	addi $s2, $s2, 1
+	beq $t7, 79, dLoop1
+	beq $t7, $t8, d11
+	j dLoop1
+d11:	beq $t8, $t9, winSeq
+	j dLoop1
+	
+diag2:	# 2nd diagonal set
+	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	addi $s0, $s0, 2
+	addi $s1, $s1, 1
+	li $t1, 0
+dLoop2:	addi $t1, $t1, 1
+	beq $t1, 5, chkEnd
+	lb $t7, ($s0)
+	lb $t8, ($s1)
+	lb $t9, ($s2)
+	addi $s0, $s0, 1
+	addi $s1, $s1, 1
+	addi $s2, $s2, 1
+	beq $t7, 79, dLoop2
+	beq $t7, $t8, d21
+	j dLoop2
+d21:	beq $t8, $t9, winSeq
+	j dLoop2
+	
+chkEnd:	# return to main
+	jr $ra
+
+aiMove:	# make a move for computer
+	# if first move
+	beq $s7, 1, first
+	j aNext
+first:	beq $t3, 49, f1
+	beq $t3, 50, f2
+	beq $t3, 51, f3
+f1:	li $t0, 51
+	j sCont
+f2:	li $t0, 50
+	j sCont
+f3:	li $t0, 49
+	j sCont
+aNext:	# check to see if ai can win
+	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	addi $s0, $s0, 5
+	addi $s1, $s1, 5
+	addi $s2, $s2, 5
+	li $t1, 0
+c1wins:	# check for wins related to 1st column
+	addi $t1, $t1, 1
+	beq $t1, 7, aNext2
+	lb $t7, ($s0)
+	subi $s2, $s2, 1
+	subi $s1, $s1, 1
+	subi $s0, $s0, 1
+	# branch when c1[current] = B
+	beq $t7, 66, c1wv1
+	j c1wins
+c1wv1:	# check if c1[current-1] = B
+	lb $t7, ($s0)
+	bne $t7, 66, c1wh1
+	# check if c1[current-2] = O
+	lb $t7, -1($s0)
+	bne $t7, 79, c1wh1
+	# check if move is available
+	la $s4, c1
+	lb $t7, ($s4)
+	bne $t7, 79, c1wh1
+	li $t0, 49
+	j sCont
+c1wh1:	# check if c2[current] = B
+	lb $t7, 1($s1)
+	bne $t7, 66, c1wh2
+	# check if c3[current] = O
+	lb $t7, 1($s2)
+	bne $t7, 79, c1wh2
+	# check if c3[current+1] != O
+	lb $t7, 2($s2)
+	beq $t7, 79, c1wh2
+	# check if move is available
+	la $s4, c3
+	lb $t7, ($s4)
+	bne $t7, 79, c1wh2
+	li $t0, 51
+	j sCont
+c1wh2:	# check if c3[current] = B
+	lb $t7, 1($s2)
+	bne $t7, 66, c1wd1
+	# check if c2[current] = O
+	lb $t7, 1($s1)
+	bne $t7, 79, c1wd1
+	# check if c2[current+1] != O
+	lb $t7, 2($s1)
+	beq $t7, 79, c1wd1
+	# check if move is available
+	la $s4, c2
+	lb $t7, ($s4)
+	bne $t7, 79, c1wd1
+	li $t0, 50
+	j sCont
+c1wd1:	# check if c2[current-1] = B
+	lb $t7, ($s1)
+	bne $t7, 66, c1wd2
+	# check if c3[current-1] != O
+	lb $t7, ($s2)
+	beq $t7, 79, c1wd2
+	# check if c3[current-2] = O
+	lb $t7, -1($s2)
+	bne $t7, 79, c1wd2
+	# check if move is available
+	la $s4, c3
+	lb $t7, ($s4)
+	bne $t7, 79, c1wd2
+	li $t0, 51
+	j sCont
+c1wd2:	# check if c2[current-1] = O
+	lb $t7, ($s1)
+	bne $t7, 79, c1wins
+	# check if c3[current-2] = B
+	lb $t7, ($s2)
+	bne $t7, 66, c1wins
+	# check if c2[current] != O
+	lb $t7, ($s1)
+	beq $t7, 79, c1wins
+	# check if move is available
+	la $s4, c2
+	lb $t7, ($s4)
+	bne $t7, 79, c1wins
+	li $t0, 50
+	j sCont
+aNext2:	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	addi $s0, $s0, 5
+	addi $s1, $s1, 5
+	addi $s2, $s2, 5
+	li $t1, 0
+c3wins:	# check for wins related to 3rd column
+	addi $t1, $t1, 1
+	beq $t1, 7, sNext
+	lb $t7, ($s2)
+	subi $s2, $s2, 1
+	subi $s1, $s1, 1
+	subi $s0, $s0, 1
+	# branch when c3[current] = B
+	beq $t7, 66, c3wv1
+	j c3wins
+c3wv1:	# check if c3[current-1] = B
+	lb $t7, ($s2)
+	bne $t7, 66, c3wh1
+	# check if c3[current-2] = O
+	lb $t7, -1($s2)
+	bne $t7, 79, c3wh1
+	# check if move is available
+	la $s4, c3
+	lb $t7, ($s4)
+	bne $t7, 79, c3wh1
+	li $t0, 51
+	j sCont
+c3wh1:	# check if c2[current] = B
+	lb $t7, 1($s1)
+	bne $t7, 66, c3wd1
+	# check if c1[current] = O
+	lb $t7, 1($s0)
+	bne $t7, 79, c3wd1
+	# check if c1[current+1] != O
+	lb $t7, 2($s0)
+	beq $t7, 79, c3wd1
+	# check if move is available
+	la $s4, c1
+	lb $t7, ($s4)
+	bne $t7, 79, c3wd1
+	li $t0, 49
+	j sCont
+c3wd1:	# check if c2[current-1] = B
+	lb $t7, ($s1)
+	bne $t7, 66, c3wd2
+	# check if c1[current-1] != O
+	lb $t7, ($s0)
+	beq $t7, 79, c3wd2
+	# check if c1[current-2] = O
+	lb $t7, -1($s0)
+	bne $t7, 79, c3wd2
+	# check if move is available
+	la $s4, c1
+	lb $t7, ($s4)
+	bne $t7, 79, c3wd2
+	li $t0, 49
+	j sCont
+c3wd2:	# check if c2[current-1] = O
+	lb $t7, ($s1)
+	bne $t7, 79, c3wins
+	# check if c1[current-2] = B
+	lb $t7, ($s0)
+	bne $t7, 66, c3wins
+	# check if c2[current] != O
+	lb $t7, ($s1)
+	beq $t7, 79, c3wins
+	# check if move is available
+	la $s4, c2
+	lb $t7, ($s4)
+	bne $t7, 79, c3wins
+	li $t0, 50
+	j sCont
+	
+
+sNext:	# check if human about to win
+	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	addi $s2, $s2, 5
+	addi $s1, $s1, 5
+	addi $s0, $s0, 5
+	li $t1, 0
+c1wchk:	# check for wins related to 1st column
+	addi $t1, $t1, 1
+	beq $t1, 7, sNext2
+	lb $t7, ($s0)
+	subi $s2, $s2, 1
+	subi $s1, $s1, 1
+	subi $s0, $s0, 1
+	beq $t7, 65, c1_v1
+	j c1wchk
+c1_v1:	# check if c1[current] = c1[current-1]
+	lb $t7, ($s0)
+	beq $t7, 65, c1_v2
+c1_h1:	# check if c1[current] = c2[current]
+	lb $t7, 1($s1)
+	beq $t7, 65, c1_h2
+c1_h21:	# check if c1[current] = c3[current]
+	lb $t7, 1($s2)
+	beq $t7, 65, c1_h22
+c1_d1:	# check if c1[current] = c2[current-1]
+	lb $t7, ($s1)
+	beq $t7, 65, c1_d2
+	j c1wchk
+c1_v2:	# if c1[current-2] != B, block the player
+	lb $t7, -1($s0)
+	beq $t7, 66, c1_h1
+	j c1vblk
+c1_h2:	# if c3[current] != B, block the player
+	lb $t7, 1($s2)
+	beq $t7, 66, c1_h21
+	j c1hblk
+c1_h22:	# if c2[current] != B
+	lb $t7, 1($s1)
+	beq $t7, 66, c1_d1
+	# if c2[current+1] != O
+	lb $t7, 2($s1)
+	beq $t7, 79, c1_d1
+	j c1hbk2
+c1_d2:	# if c3[current-2] != B
+	lb $t7, -1($s2)
+	beq $t7, 66, c1wchk
+	# if c3[current-1] != O
+	lb $t7, ($s2)
+	bne $t7, 79, c1dblk
+	# if c1[current-1] != B
+	lb $t7, ($s0)
+	bne $t7, 66, c1trap
+	# else copy move
+	j copy
+c1vblk:	# vertical block player method
+	# check if playable move
+	la $s0, c1
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 49
+	j sCont
+c1hblk:	# horizontal block player method
+	# check if playable move
+	la $s0, c3
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 51
+	j sCont
+c1hbk2:	# horizontal block player method 2
+	# check if playable move
+	la $s0, c2
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 50
+	j sCont
+c1dblk:	# diagonal block player method
+	# check if playable move
+	la $s0, c3
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 51
+	j sCont
+c1trap:	# block player from forming trap
+	# check if playable move
+	la $s0, c1
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 49
+	j sCont
+	
+sNext2:	la $s0, c1
+	la $s1, c2
+	la $s2, c3
+	addi $s2, $s2, 5
+	addi $s1, $s1, 5
+	addi $s0, $s0, 5
+	li $t1, 0
+c3wchk:	# check for wins related to 3rd column
+	addi $t1, $t1, 1
+	beq $t1, 7, first
+	lb $t7, ($s2)
+	subi $s2, $s2, 1
+	subi $s1, $s1, 1
+	subi $s0, $s0, 1
+	beq $t7, 65, c3_v1
+	j c3wchk
+c3_v1:	# check if c3[current] = c3[current-1]
+	lb $t7, ($s2)
+	beq $t7, 65, c3_v2
+c3_h1:	# check if c3[current] = c2[current]
+	lb $t7, 1($s1)
+	beq $t7, 65, c3_h2
+c3_d1:	# check if c3[current] = c2[current-1]
+	lb $t7, ($s1)
+	beq $t7, 65, c3_d2
+	j c3wchk
+c3_v2:	# if c3[current-2] != B, block the player
+	lb $t7, -1($s2)
+	beq $t7, 66, c3_h1
+	j c3vblk
+c3_h2:	# if c1[current] != B, block the player
+	lb $t7, 1($s0)
+	beq $t7, 66, c3_d1
+	j c3hblk
+c3_d2:	# if c1[current-2] != B
+	lb $t7, -1($s0)
+	beq $t7, 66, c3wchk
+	# if c1[current-1] != O
+	lb $t7, ($s0)
+	bne $t7, 79, c3dblk
+	# if c3[current-1] != B
+	lb $t7, ($s2)
+	bne $t7, 66, c3trap
+	# else copy move
+	j copy
+c3vblk:	# vertical block player method
+	# check if playable move
+	la $s0, c3
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 51
+	j sCont
+c3hblk:	# horizontal block player method
+	# check if playable move
+	la $s0, c1
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 49
+	j sCont
+c3dblk:	# diagonal block player method
+	# check if playable move
+	la $s0, c1
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 49
+	j sCont
+c3trap:	# block player from forming trap
+	# check if playable move
+	la $s0, c3
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	li $t0, 51
+	j sCont
+fullc:	# if column is full pick new move
+	# column 1
+	la $s0, c1
+	lb $t7, ($s0)
+	bne $t7, 79, fullc2
+	li $t0, 49
+	j sCont
+fullc2:	# column 2
+	la $s0, c2
+	lb $t7, ($s0)
+	bne $t7, 79, fullc3
+	li $t0, 50
+	j sCont
+fullc3:	# if c1 and c2 full, place in c3
+	li $t0, 51
+	j sCont
+	
+copy:	# copy player move if possible
+	beq $t3, 49, copy1
+	beq $t3, 50, copy2
+	j copy3
+copy1:	la $s0, c1
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	move $t0, $t3
+	j sCont
+copy2:	la $s0, c2
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	move $t0, $t3
+	j sCont
+copy3:	la $s0, c3
+	lb $t7, ($s0)
+	bne $t7, 79, fullc
+	move $t0, $t3
+	j sCont
+
+sCont:	# update board
+	la $s0, c1
+	addi $s0, $s0, 5
+	la $s1, c2
+	addi $s1, $s1, 5
+	la $s2, c3
+	addi $s2, $s2, 5
+	beq $t0, 49, a1
+	beq $t0, 50, a2
+	beq $t0, 51, a3
+	
+a1:	# update to column 1
+	li $t0, 66
+	li $t1, 0
+a12:	# find next available
+	addi $t1, $t1, 1
+	beq $t1, 7, fullc
+	lb $t2, ($s0)
+	beq $t2, 79, a13
+	subi $s0, $s0, 1
+	j a12
+a13:	# fill available space
+	sb $t0, ($s0)
+	jr $ra
+	
+a2:	# update to column 2
+	li $t0, 66
+	li $t1, 0
+a22:	# find next available
+	addi $t1, $t1, 1
+	beq $t1, 7, fullc
+	lb $t2, ($s1)
+	beq $t2, 79, a23
+	subi $s1, $s1, 1
+	j a22
+a23:	# fill available space
+	sb $t0, ($s1)
+	jr $ra
+
+a3:	# update to column 1
+	li $t0, 66
+	li $t1, 0
+a32:	# find next available
+	addi $t1, $t1, 1
+	beq $t1, 7, fullc
+	lb $t2, ($s2)
+	beq $t2, 79, a33
+	subi $s2, $s2, 1
+	j a32
+a33:	# fill available space
+	sb $t0, ($s2)
+	jr $ra
+	
+	
+winSeq:	# check who won
+	beq $t7, 66, aiWin
+humWin:	# player win method
+	# play win sound
+	li $a0, 70
+	li $a1, 1000
+	li $a2, 8
+	li $a3, 80
+	li $v0, 31
+	syscall
+	li $a0, 65
+	syscall
+	li $a0, 75
+	syscall
+	# display you won text
+	la $a0, win
+	li $v0, 4
+	syscall
+	j again
+aiWin:				# ai win method
+	# display you lose text
+	la $a0, loss
+	li $v0, 4
+	syscall
+	# play lose sound
+	li $a0, 65
+	li $a1, 750
+	li $a2, 56
+	li $a3, 80
+	li $v0, 33
+	syscall
+	li $a0, 58
+	li $a1, 900
+	li $a2, 56
+	syscall
+	j again
+	
+full:				# display board full
+	li $a0, 75
+	li $a1, 900
+	li $a2, 82
+	li $a3, 70
+	li $v0, 31
+	syscall
+	li $a3, 85
+	li $v0, 31
+	syscall
+	la $a0, fullB
+	li $v0, 4
+	syscall
+	j again
+	
+again:			# ask if they wish to play again
+	la $a0, play
+	li $v0, 4
+	syscall
+	li $v0, 12
+	syscall
+	move $t0, $v0
+	li $a0, 10
+	li $v0, 11
+	syscall
+	beq $t0, 121, main
+	beq $t0, 110, end
+	j again
+		
+end:			# program end
+	li $v0, 10
+	syscall
